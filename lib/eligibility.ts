@@ -1,14 +1,12 @@
 // lib/eligibility.ts
 //
-// Pure function: VehicleFacts in, Verdict out. No network calls, no
-// knowledge of Cardog, vPIC, or HTTP — only the `VehicleFacts` type crosses
-// the boundary from facts.ts, and that's a type-only import (erased at
-// compile time, zero runtime coupling). This is the piece worth
-// unit-testing with hand-built fixtures: construct a VehicleFacts object
-// directly, no mocking required.
+// The eligilibity engine: this is where the business logic lives.
+// It takes a VehicleFacts object generated in facts.ts and returns a
+// Verdict object
 
 import type { VehicleFacts, UnknownReason } from "./facts";
 
+// Constants for the eligibility rules
 const MAX_VEHICLE_AGE_YEARS = 12;
 const MIN_SEATING_CAPACITY = 4;
 const MAX_MILEAGE = 150_000;
@@ -18,18 +16,9 @@ export type VerdictStatus = "eligible" | "not-eligible" | "cannot-say";
 
 export interface Verdict {
   status: VerdictStatus;
-  reasons: string[]; // plain language, driver-facing
+  reasons: string[];
 }
 
-/**
- * Precedence, by design: a known disqualifying fact always wins over an
- * unrelated unknown — if the vehicle is definitely too old, we say so, even
- * if we also couldn't verify something else. Only when there are zero known
- * disqualifiers AND zero unknowns does the verdict become "eligible."
- *
- * Recalls are handled outside that disqualifiers/unknowns split entirely —
- * see the block below for why.
- */
 export function evaluateEligibility(facts: VehicleFacts): Verdict {
   if (!facts.decoded) {
     return {
@@ -83,30 +72,14 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
   }
 
   // --- recalls ---
-  // Deliberately NOT a disqualifier. Cardog can confirm a campaign exists
-  // for this make/model/year; it cannot confirm whether THIS unit was
-  // already repaired. Treating that as an automatic rejection would claim
-  // certainty we don't have — the honest verdict is "cannot say, needs
-  // manual review," with the specific campaigns surfaced and a concrete
-  // ask (proof of completed repair) rather than a silent block.
-  //
-  // This pushes into the normal `unknowns` array, same as every other
-  // unresolved check — meaning it only shows up in `reasons` when it's
-  // actually part of why the verdict landed where it did. If the vehicle
-  // is ALSO disqualified for an unrelated reason (wrong vehicle type),
-  // the recall note won't appear here — reasons is meant to answer "why
-  // this verdict," and recalls didn't cause it in that case. Full recall
-  // detail is still always shown in the facts panel below, unconditionally
-  // — nothing is hidden, it's just not duplicated somewhere it could be
-  // misread as a contributing factor.
+  // Recalls are a special case: they are never a disqualifier,
+  // only a "cannot say" reason, since we cannot confirm whether
+  // a specific vehicle has been repaired.
   if (!facts.recalls.checked) {
     unknowns.push("We couldn't check this vehicle's recall status.");
   } else if (facts.recalls.openCampaigns.length > 0) {
     const count = facts.recalls.openCampaigns.length;
     const base = `${count} open safety recall${count > 1 ? "s" : ""} on file, with no way to confirm the repair was completed on this specific vehicle — see recall details below.`;
-    // The "go get proof of repair" instruction is only honest advice when
-    // resolving it could actually change the outcome — i.e. nothing else
-    // already disqualifies this vehicle.
     unknowns.push(
       disqualifiers.length === 0
         ? `${base} Please provide proof of completed repair (dealer service record) to proceed.`

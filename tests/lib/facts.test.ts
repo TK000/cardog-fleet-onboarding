@@ -183,53 +183,6 @@ describe("buildVehicleFacts — seatingCapacity (regression coverage)", () => {
 });
 
 describe("buildVehicleFacts — recalls", () => {
-  it("filters Inconsequential campaigns out of openCampaigns but keeps a count", () => {
-    const facts = buildVehicleFacts({
-      vin: "TESTVIN0000000001",
-      identity: baseIdentity(),
-      vpic: null,
-      specs: null,
-      recalls: baseRecalls({
-        total: 2,
-        recalls: [
-          {
-            ref: "recall:nhtsa/1",
-            authority: "nhtsa",
-            authorityLabel: "NHTSA",
-            campaignNumber: "26V001000",
-            component: "BRAKES",
-            defectSummary: null,
-            consequenceSummary: null,
-            correctiveAction: null,
-            recallDate: null,
-            notificationType: null,
-            unitsAffected: null,
-            affects: [],
-          },
-          {
-            ref: "recall:tc/2",
-            authority: "tc",
-            authorityLabel: "Transport Canada",
-            campaignNumber: "2026001",
-            component: "Label",
-            defectSummary: null,
-            consequenceSummary: null,
-            correctiveAction: null,
-            recallDate: null,
-            notificationType: "Inconsequential",
-            unitsAffected: null,
-            affects: [],
-          },
-        ],
-      }),
-      mileage: null,
-      checkedAt: "2026-01-01T00:00:00Z",
-    });
-    expect(facts.recalls.openCampaigns).toHaveLength(1);
-    expect(facts.recalls.openCampaigns[0].campaignNumber).toBe("26V001000");
-    expect(facts.recalls.excludedInconsequentialCount).toBe(1);
-  });
-
   it("reports checked: false when Cardog couldn't resolve a model year, not a false clean", () => {
     const facts = buildVehicleFacts({
       vin: "TESTVIN0000000001",

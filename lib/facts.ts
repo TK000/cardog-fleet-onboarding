@@ -1,13 +1,7 @@
 // lib/facts.ts
 //
-// Maps raw Cardog/vPIC responses into normalized, source-tagged facts.
-// Touches Cardog/vPIC types freely, but makes no network calls itself —
-// those already happened in route.ts before this runs. This is the only
-// file in the app allowed to know both "what Cardog's response looks like"
-// and "what a fact means to the rule engine."
-//
-// The core discipline carried into every fact: known with a source, or
-// explicitly unknown with a reason — never silently treated as a pass.
+// Maps raw Cardog/vPIC responses into normalized, source-tagged facts
+// that can be fed into the eligibility engine in eligibility.ts.
 
 import type {
   VinIdentity,
@@ -23,11 +17,9 @@ import { readSpecAttribute } from "./cardog";
 
 export type FactSource = "cardog" | "vpic-fallback";
 
-// Why a fact is unknown — mirrors the five spec-sheet states from cardog.ts
-// (minus "value", which becomes a known Fact instead) plus "not-decoded" for
-// when we never had any identity to read from in the first place.
+// Why a fact is unknown
 export type UnknownReason =
-  | "trimDependent" // trims disagree; Cardog refused to average or pick
+  | "trimDependent" // trims disagree
   | "partial" // only some trims report this attribute
   | "unservable" // Cardog checked and explicitly withheld it
   | "absent" // never appears anywhere in the spec sheet
@@ -84,14 +76,8 @@ export interface OpenRecallSummary {
 
 export interface RecallFacts {
   checked: boolean; // Cardog's `resolved` — false means "could not check," never "clean"
-  // Pre-filtered: campaigns with notificationType "Inconsequential" are
-  // excluded here (Transport Canada's own text on these says they carry no
-  // safety risk — e.g. a French-translation label typo). Still worth
-  // surfacing on the results page, just not as an eligibility blocker.
   openCampaigns: OpenRecallSummary[];
-  excludedInconsequentialCount: number; // so the UI can say "+1 non-safety notice on file" without re-deriving it
-  asOf: string | null; // Cardog's own field: when the recall data was last updated. Real currency
-  // date from the source, not our own request time — null when recalls couldn't be checked at all.
+  asOf: string | null; // Cardog's own field: when the recall data was last updated
 }
 
 export interface VehicleFacts {
@@ -101,15 +87,8 @@ export interface VehicleFacts {
   vehicleType: Fact<CanonicalVehicleType>;
   seatingCapacity: Fact<number>;
   recalls: RecallFacts;
-  mileage: number | null; // driver-reported, unverified — null if not provided; never sourced from an API
-  // ISO timestamp of when THIS check ran — i.e. when our server made the
-  // Cardog/vPIC requests. This is NOT the same claim as recalls.asOf: we
-  // don't have a per-field "last updated" date from Cardog for identity or
-  // specs data (no such field exists in either schema), so "when we
-  // checked" is the most honest date available for year/vehicleType/
-  // seatingCapacity/mileage. Conflating the two would overstate what
-  // Cardog actually tells us.
-  checkedAt: string;
+  mileage: number | null; // driver-reported, unverified — null if not provided
+  checkedAt: string; // ISO timestamp of when this check ran
 }
 
 // ---------------------------------------------------------------------------
@@ -119,23 +98,17 @@ export interface VehicleFacts {
 export interface BuildFactsInput {
   vin: string;
   identity: VinIdentity | null;
-  vpic?: VpicFallbackResult | null; // present when Cardog's own decode failed (identity.valid === false)
+  vpic?: VpicFallbackResult | null;
   specs?: SpecSheet | null;
   recalls: VinRecalls;
   mileage: number | null;
-  checkedAt: string; // ISO timestamp; pass new Date().toISOString() from route.ts at request time
+  checkedAt: string; // ISO timestamp
 }
 
 export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
   const { vin, identity, vpic, specs, recalls, mileage, checkedAt } = input;
 
   const cardogDecoded = identity?.valid === true;
-  // "Decoded" means we got the two fields every rule depends on — not an
-  // interpretation of NHTSA's numeric ErrorCode. We've seen codes 1, 3, 5,
-  // 6, 8, and 1+5+14 across real testing, several on VINs that decoded
-  // perfectly fine (e.g. a broken-checksum VIN still returned full make/
-  // year/vehicleType with ErrorCode "1"), so the error code isn't a
-  // reliable proxy for usability — checking the actual fields is.
   const vpicDecoded = vpic != null && vpic.make != null && vpic.year != null;
   const decoded = cardogDecoded || vpicDecoded;
 
@@ -170,24 +143,10 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
     if (cardogValue != null) {
       seatingCapacity = known(cardogValue, "cardog");
     } else if (vpicDecoded && vpic!.seats != null) {
-      // Cardog's result wasn't a clean, usable number — partial, trimDependent,
-      // unservable, absent, or non-numeric all land here. Previously this
-      // fallback only fired on "absent" specifically, which meant a
-      // perfectly good vPIC seat count — already fetched, since route.ts's
-      // seatingCapacityUsable check triggers the vPIC call on any of these
-      // statuses, not just absent — was silently discarded whenever Cardog
-      // said "partial" instead, which is the MORE common case in practice.
-      // vPIC decodes one specific build, same as the nano grain would, so
-      // using it here is no less principled than the doors precedent.
       seatingCapacity = known(vpic!.seats, "vpic-fallback");
-    } else if (result.status === "value") {
-      // value exists but isn't numeric — a real data-quality problem
-      // vPIC can't help with either.
+    } else if (result.status === "value") { // value exists but isn't numeric
       seatingCapacity = unknown("unservable");
     } else if (result.status === "unservable") {
-      // Carry the specific reason (e.g. "not-an-integer") through instead of
-      // discarding it — distinguishes "data on file is malformed" from
-      // "never reported" (absent), which are genuinely different facts.
       seatingCapacity = unknown("unservable", result.reason);
     } else {
       seatingCapacity = unknown(result.status);
@@ -198,20 +157,8 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
     seatingCapacity = unknown("not-decoded");
   }
 
-  // Doors was dropped as a rule: Cardog's specs endpoint never populates it
-  // in practice (confirmed across every vehicle category tested — see
-  // cardog.ts), so it would have been vPIC-sourced or "cannot verify" on
-  // essentially every real vehicle. vehicleType + seatingCapacity already
-  // cover the "is this a practical passenger vehicle" question without it.
-
   // --- recalls ---
-  // notificationType "Inconsequential" is a real observed value (Transport
-  // Canada) meaning the campaign's own text says it carries no safety risk
-  // — e.g. a bilingual-label wording fix. Excluded from the eligibility
-  // gate, but the count is kept so the UI can still disclose it.
-  const inconsequential = recalls.recalls.filter((r) => r.notificationType === "Inconsequential");
   const openCampaigns: OpenRecallSummary[] = recalls.recalls
-    .filter((r) => r.notificationType !== "Inconsequential")
     .map((r) => ({
       campaignNumber: r.campaignNumber,
       authorityLabel: r.authorityLabel,
@@ -228,7 +175,6 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
     recalls: {
       checked: recalls.resolved,
       openCampaigns,
-      excludedInconsequentialCount: inconsequential.length,
       asOf: recalls.asOf ?? null,
     },
     mileage,

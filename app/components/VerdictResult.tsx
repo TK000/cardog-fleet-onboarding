@@ -111,12 +111,6 @@ export function VerdictResult({
                   date={facts.recalls.asOf ?? undefined}
                   dateLabel="as of"
                 />
-                {facts.recalls.excludedInconsequentialCount > 0 && (
-                  <div className="text-xs text-[#8A8A80]">
-                    +{facts.recalls.excludedInconsequentialCount} non-safety notice
-                    {facts.recalls.excludedInconsequentialCount > 1 ? "s" : ""} on file
-                  </div>
-                )}
               </>
             ) : (
               <>

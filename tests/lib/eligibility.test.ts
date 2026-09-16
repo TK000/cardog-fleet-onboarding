@@ -18,7 +18,7 @@ function cleanFacts(overrides: Partial<VehicleFacts> = {}): VehicleFacts {
     year: { status: "known", value: new Date().getFullYear(), source: "cardog" },
     vehicleType: { status: "known", value: "passenger-car", source: "cardog" },
     seatingCapacity: { status: "known", value: 5, source: "cardog" },
-    recalls: { checked: true, openCampaigns: [], excludedInconsequentialCount: 0, asOf: "2026-01-01T00:00:00Z" },
+    recalls: { checked: true, openCampaigns: [], asOf: "2026-01-01T00:00:00Z" },
     mileage: 30_000,
     checkedAt: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -113,7 +113,7 @@ describe("evaluateEligibility — seatingCapacity", () => {
 describe("evaluateEligibility — recalls", () => {
   it("produces cannot-say when recall status could not be checked", () => {
     const verdict = evaluateEligibility(
-      cleanFacts({ recalls: { checked: false, openCampaigns: [], excludedInconsequentialCount: 0, asOf: null } })
+      cleanFacts({ recalls: { checked: false, openCampaigns: [], asOf: null } })
     );
     expect(verdict.status).toBe("cannot-say");
   });
@@ -128,7 +128,6 @@ describe("evaluateEligibility — recalls", () => {
         recalls: {
           checked: true,
           openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: "LABEL", correctiveAction: "Replace label." }],
-          excludedInconsequentialCount: 0,
           asOf: "2026-01-01T00:00:00Z",
         },
       })
@@ -142,7 +141,6 @@ describe("evaluateEligibility — recalls", () => {
         recalls: {
           checked: true,
           openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: null, correctiveAction: null }],
-          excludedInconsequentialCount: 0,
           asOf: "2026-01-01T00:00:00Z",
         },
       })
@@ -164,7 +162,6 @@ describe("evaluateEligibility — recalls", () => {
         recalls: {
           checked: true,
           openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: null, correctiveAction: null }],
-          excludedInconsequentialCount: 0,
           asOf: "2026-01-01T00:00:00Z",
         },
       })
@@ -173,17 +170,6 @@ describe("evaluateEligibility — recalls", () => {
     expect(verdict.reasons.some((r) => /provide proof/i.test(r))).toBe(false);
     expect(verdict.reasons.some((r) => /open safety recall/i.test(r))).toBe(false);
     expect(verdict.reasons.some((r) => /truck/i.test(r))).toBe(true);
-  });
-
-  it("does not disqualify on an Inconsequential-only recall set", () => {
-    // buildVehicleFacts is responsible for filtering Inconsequential
-    // campaigns out of openCampaigns before evaluateEligibility ever sees
-    // them — this test documents that evaluateEligibility trusts that
-    // filtering rather than re-implementing it.
-    const verdict = evaluateEligibility(
-      cleanFacts({ recalls: { checked: true, openCampaigns: [], excludedInconsequentialCount: 1, asOf: "2026-01-01T00:00:00Z" } })
-    );
-    expect(verdict.status).toBe("eligible");
   });
 });
 

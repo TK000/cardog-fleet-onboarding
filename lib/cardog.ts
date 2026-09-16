@@ -1,8 +1,11 @@
 // lib/cardog.ts
 //
-// All Cardog + vPIC network calls live in this file, and nothing else does.
-// Every function here does one job: call an endpoint, return a typed result.
-// No eligibility logic, no verdicts — that all lives in lib/eligibility.ts.
+// All Cardog + vPIC network calls live in this file: every function calls an
+// endpoint and returns a typed result. No business logic here
+
+// everything here was verified against https://api.cardog.app/v2/openapi.json
+// and https://vpic.nhtsa.dot.gov/api/
+
 
 const CARDOG_BASE = "https://api.cardog.app/v2";
 const VPIC_BASE = "https://vpic.nhtsa.dot.gov/api/vehicles";
@@ -10,8 +13,6 @@ const VPIC_BASE = "https://vpic.nhtsa.dot.gov/api/vehicles";
 function cardogHeaders(): HeadersInit {
   const key = process.env.CARDOG_API_KEY;
   if (!key) {
-    // Fail loudly at call time rather than sending an unauthenticated
-    // request and getting a confusing 401 three layers away.
     throw new Error("CARDOG_API_KEY is not set");
   }
   return { "x-api-key": key };
@@ -33,46 +34,33 @@ export interface VinIdentityRefs {
   transmission: string | null;
   electrificationLevel: string | null;
   vehicleType: string | null;
-  gvwr?: string | null; // not in the schema's required list, despite being nullable
+  gvwr?: string | null;
   country: string | null;
 }
 
 export interface ObservedTrim {
-  value: string; // verbatim listing text, e.g. "Long Range Battery AWD/ NO ACCIDENT/ BC LOCAL"
-  authorityTier: "observed"; // always "observed" per schema — comes from a listing, not a catalogue
+  value: string;
+  authorityTier: "observed"; // always "observed" per schema
   asOf: string | null;
 }
 
-/**
- * Matches the official VinIdentity schema in
- * https://api.cardog.app/v2/openapi.json (components.schemas.VinIdentity)
- * exactly — confirmed against the spec, not inferred from samples. Three
- * fields here (trimAuthorityTier, observedTrim, authorityTier) never
- * appeared in any real response we pulled during testing, and are correctly
- * marked optional: none of them are in the schema's `required` array.
- */
 export interface VinIdentity {
   vin: string;
-  valid: boolean; // when false, every other field and every ref is null — Cardog never backfills from similar vehicles
+  valid: boolean; // when false, every other field and every ref is null
   year: number | null;
-  make: string | null; // display name — use refs.make for joins
-  model: string | null; // display name — use refs.model for joins
-  trim: string | null; // catalogue trim decoded from the VIN pattern; never taken from listing text
-  trimAuthorityTier?: AuthorityTier | null; // "derived" means decoded from the VIN pattern; null exactly when trim is null
+  make: string | null;
+  model: string | null;
+  trim: string | null;
+  trimAuthorityTier?: AuthorityTier | null;
   observedTrim?: ObservedTrim | null;
   refs: VinIdentityRefs;
-  nano: string | null; // build code ref (VIN positions 1–8 + 10); null when valid is false
-  squish: string | null; // WMI+VDS+model-year ref, plant-agnostic; the grain market prices are quoted at; null when valid is false
-  authorityTier?: AuthorityTier; // trust tier of the identity facts as a whole — not nullable when present, but absent isn't required
-  links: Record<string, string>; // always includes "instrument", "recalls", "listings", plus one entity link per ref
+  nano: string | null;
+  squish: string | null;
+  authorityTier?: AuthorityTier;
+  links: Record<string, string>;
 }
 
-/**
- * GET /v2/vin/{vin} — decode a VIN via Cardog.
- * When valid is false, every other field is null — this is the
- * "does not decode" case the brief calls out. Do not treat it as an error;
- * it's a real, expected outcome that the rule engine needs to see.
- */
+// decode a VIN via Cardog 
 export async function getVinIdentity(vin: string): Promise<VinIdentity> {
   const res = await fetch(`${CARDOG_BASE}/vin/${encodeURIComponent(vin)}`, {
     headers: cardogHeaders(),
@@ -87,14 +75,6 @@ export async function getVinIdentity(vin: string): Promise<VinIdentity> {
 // Recalls
 // ---------------------------------------------------------------------------
 
-/**
- * Matches the official RecallsVin schema in
- * https://api.cardog.app/v2/openapi.json (components.schemas.RecallsVin)
- * exactly, including which fields are actually required vs. merely
- * nullable-when-present — those are different axes in JSON Schema and easy
- * to conflate. Confirmed against a real recalled VIN (Subaru Forester/
- * Ascent 26V436000 campaign), not just the spec text.
- */
 export interface RecallAffectedYear {
   modelYearRef: string;
   year: number;
@@ -102,42 +82,33 @@ export interface RecallAffectedYear {
 }
 
 export interface RecallCampaign {
-  ref: string; // e.g. "recall:tc/2024-123"
-  authority: string; // "tc" (Transport Canada) or "nhtsa" — other values may be added
-  authorityLabel: string; // e.g. "Transport Canada"
+  ref: string;
+  authority: string;
+  authorityLabel: string;
   campaignNumber: string;
   component: string | null;
   defectSummary: string | null;
   consequenceSummary: string | null;
   correctiveAction: string | null;
-  recallDate: string | null; // ISO date, YYYY-MM-DD
-  notificationType: string | null; // "Inconsequential" is a real observed value — filter it from eligibility gates, but keep it visible on the page
-  unitsAffected: number | null; // largest value across `affects` — the whole-campaign figure
+  recallDate: string | null;
+  notificationType: string | null;
+  unitsAffected: number | null;
   affects: RecallAffectedYear[];
-  links?: Record<string, string>; // not required
+  links?: Record<string, string>;
 }
 
 export interface VinRecalls {
   vin: string;
   modelYearRef: string | null;
-  resolved: boolean; // false when the VIN is neither in the vehicle graph nor decodable to a model year
-  // — recalls is then empty because nothing could be checked, NOT because the vehicle is clear.
-  source?: "observed" | "decoded"; // how the VIN was matched to a model year — absent when resolved is false.
-  // "observed" = the exact VIN is in Cardog's vehicle graph; "decoded" = derived via the VIN decoder.
-  // Confirmed empirically: our synthetic-but-valid test VINs came back "decoded".
+  resolved: boolean;
+  source?: "observed" | "decoded";
   total: number;
   recalls: RecallCampaign[];
-  asOf?: string; // ISO 8601 — not required
-  links?: Record<string, string>; // not required
+  asOf?: string;
+  links?: Record<string, string>;
 }
 
-/**
- * GET /v2/vin/{vin}/recalls — the authoritative per-VIN recall check.
- * `resolved: false` means "Cardog could not check this VIN" — NOT "clean."
- * Confirmed empirically: this degrades gracefully (resolved: false,
- * modelYearRef: null) even for a VIN that failed identity decode, so it's
- * always safe to call regardless of whether getVinIdentity succeeded.
- */
+// get recalls for a VIN via Cardog 
 export async function getVinRecalls(vin: string): Promise<VinRecalls> {
   const res = await fetch(`${CARDOG_BASE}/vin/${encodeURIComponent(vin)}/recalls`, {
     headers: cardogHeaders(),
@@ -149,48 +120,29 @@ export async function getVinRecalls(vin: string): Promise<VinRecalls> {
 }
 
 // ---------------------------------------------------------------------------
-// Specs (model-year and nano/build grain)
+// Specs
 // ---------------------------------------------------------------------------
 
-/**
- * Matches the official SpecSheet schema in
- * https://api.cardog.app/v2/openapi.json (components.schemas.SpecSheet)
- * exactly, including which fields are truly required. `trim` and `links`
- * are both absent from the schema's `required` array — easy to miss since
- * `trim` reads like it should always be there.
- */
 export type SpecValue = string | number | boolean | string[];
 
 export interface SpecAttributeValue {
   value: SpecValue;
-  unit?: string; // stated on every number; UnitCode from the catalog (MM, LB, MPG, USD, ...)
+  unit?: string;
   source: "decode" | "catalogue";
   region?: "US" | "CA" | "EU";
   disagreement?: {
     source: "decode" | "catalogue";
-    values: SpecValue[]; // every distinct value that source stated, never resolved to one
+    values: SpecValue[];
     unit?: string;
   };
 }
 
-// CONFIRMED across four independent real responses spanning sedan (Lucid
-// Air), SUV (Tesla Model Y), truck (Ford F-150, 57 trims), and minivan
-// (Honda Odyssey, 8 trims): "doors" never appears in sections, trimDependent,
-// or partial, on any of them. Treat this as an established fact, not a
-// hedge — Cardog's specs endpoint does not serve door count in practice.
-// If your rule engine depends on door count, source it from the vPIC
-// fallback (DecodeVinValues returns a populated "Doors" field) instead, or
-// drop the doors rule and lean on vehicleType + seatingCapacity.
-
 export interface SpecPartialEntry {
   id: string;
-  statedBy: number; // how many trims state a value
-  of: number; // how many trims have a spec at all
+  statedBy: number;
+  of: number;
 }
 
-// The closed set per the schema — not arbitrary text. "zero-blank" is the
-// one we've seen in practice (Ford F-150's "range"); the other eight are
-// documented but unconfirmed against a real response so far.
 export type SpecUnservableReason =
   | "not-a-number"
   | "not-an-integer"
@@ -203,29 +155,29 @@ export type SpecUnservableReason =
   | "non-string-item";
 
 export interface SpecUnservableEntry {
-  id: string; // a catalog attribute id
+  id: string;
   reason: SpecUnservableReason;
 }
 
 export interface SpecFeatureEntry {
   value: string;
-  trims: "all" | string[]; // "all" when every trim with a spec carries this sentence
+  trims: "all" | string[];
 }
 
 export interface SpecTrim {
-  id: string; // the only required field on this object per the schema
+  id: string;
   trim?: string | null;
   styleName?: string | null;
   region?: "US" | "CA" | "EU" | null;
   year?: number | null;
   msrp?: number | null;
-  currency?: "USD" | "CAD" | "EUR" | null; // null when the market is unknown — do not assume one
+  currency?: "USD" | "CAD" | "EUR" | null;
 }
 
 export interface SpecSheet {
   ref: string;
   grain: "model-year" | "trim";
-  trim?: string | null; // set when grain === "trim"; not required
+  trim?: string | null;
   year: number | null;
   make: string | null;
   model: string | null;
@@ -233,15 +185,16 @@ export interface SpecSheet {
   sections: Record<string, Record<string, SpecAttributeValue>>;
   trimDependent: string[];
   partial: SpecPartialEntry[];
-  trims: SpecTrim[]; // cheapest first
+  trims: SpecTrim[];
   unmapped: {
     features: SpecFeatureEntry[];
-    attributes: string[]; // keys a source stated that the catalog does not define
+    attributes: string[];
     unservable: SpecUnservableEntry[];
   };
-  links?: Record<string, string>; // not required
+  links?: Record<string, string>;
 }
 
+// get a spec sheet by model-year ref via Cardog
 export async function getSpecsByModelYear(modelYearRef: string): Promise<SpecSheet> {
   const res = await fetch(
     `${CARDOG_BASE}/specs/${encodeURIComponent(modelYearRef)}`,
@@ -253,29 +206,6 @@ export async function getSpecsByModelYear(modelYearRef: string): Promise<SpecShe
   return res.json();
 }
 
-/**
- * NOTE: this used to be one of two specs functions — getSpecsByNano() also
- * existed, preferred by a nano-first orchestration helper
- * (getSpecsPreferNano). Both were removed: nano-grain 404s frequently in
- * practice (any VIN that doesn't exactly match a catalogued production
- * build), meaning most real requests paid for two sequential API calls
- * instead of one. The main benefit nano grain offered — decode-sourced
- * `doors` — stopped mattering once doors was cut as a rule, and the
- * source:"decode" vs "catalogue" distinction it also provided was never
- * surfaced in the UI either. This is now the only specs-fetching function
- * in the app; SpecSheetBuild and CardogSpecsError were removed alongside
- * it since nothing else used them.
- */
-/**
- * Look up a single attribute (e.g. "seatingCapacity", "doors") across a
- * spec sheet's five possible states. eligibility.ts should read attributes
- * through this rather than poking at sections/trimDependent/partial/
- * unmapped.unservable directly, so the "cannot verify" logic lives in one
- * place. "unservable" and "absent" are both "we have nothing" for rule
- * purposes, but worth distinct copy: unservable means Cardog checked and
- * explicitly withheld it (with a reason); absent means it was never
- * mentioned at all.
- */
 export type SpecAttributeResult =
   | { status: "value"; value: SpecValue; source: "decode" | "catalogue" }
   | { status: "trimDependent" }
@@ -283,6 +213,10 @@ export type SpecAttributeResult =
   | { status: "unservable"; reason: SpecUnservableReason }
   | { status: "absent" };
 
+
+// read a spec attribute from a spec sheet, returning a typed result. This is
+// a defensive helper for eligibility.ts, which needs to know why a spec
+// attribute is missing (trimDependent, partial, unservable, or absent).
 export function readSpecAttribute(
   sheet: SpecSheet,
   attributeId: string
@@ -315,14 +249,6 @@ export function readSpecAttribute(
 // vPIC fallback (NHTSA, public, no key required)
 // ---------------------------------------------------------------------------
 
-// NOTE: field shape confirmed against the example response shown on
-// NHTSA's own API documentation page for DecodeVinValues — a documented
-// example, not just something we happened to observe while testing our own
-// VINs. NHTSA's real response has ~130 fields; we extract the 7 that
-// matter for eligibility. Short of a formal schema, though: NHTSA's docs
-// don't give required/optional/type declarations the way Cardog's
-// OpenAPI spec does, so "always present as a key" isn't guaranteed the
-// same way it is for the Cardog types above.
 export interface VpicFallbackResult {
   year: number | null;
   make: string | null;
@@ -334,18 +260,8 @@ export interface VpicFallbackResult {
   errorText: string | null;
 }
 
-/**
- * Falls back to NHTSA's free vPIC API when Cardog's own decode fails
- * (valid: false). Confirmed empirically that vPIC can resolve make/year/
- * vehicleType — and sometimes doors/seats — for VINs Cardog can't place in
- * its catalog. Never returns recall data; that stays Cardog-only.
- *
- * modelYear is optional but NHTSA's own docs recommend always sending it
- * when known — it helps the decoder pick the right VIN pattern era. Since
- * this function only runs when Cardog's identity.valid was false, we
- * usually won't have a trustworthy year to pass; omit it in that case
- * rather than guessing.
- */
+// fall back to vPIC when Cardog's decode fails or has missing fields
+// modelYear is optional but recommended when known, to help vPIC pick the right VIN pattern era
 export async function getVpicFallback(
   vin: string,
   modelYear?: number
