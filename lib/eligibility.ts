@@ -70,22 +70,31 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
     unknowns.push(describeUnknownSeats(facts.seatingCapacity.reason, facts.seatingCapacity.detail));
   }
 
-  // --- recalls (hard gate: unresolved always produces at least "cannot-say") ---
-  if (!facts.recalls.checked) {
-    unknowns.push("We couldn't check this vehicle's recall status.");
-  } else if (facts.recalls.openCampaigns.length > 0) {
-    const names = facts.recalls.openCampaigns.map((c) => c.campaignNumber).join(", ");
-    disqualifiers.push(
-      `Open safety recall(s) on file (${names}) with no way to confirm the repair was completed on this specific vehicle. Please provide proof of completed repair (dealer service record) to proceed.`
-    );
-  }
-
   // --- mileage (driver-reported, unverified) ---
   if (facts.mileage == null) {
     unknowns.push("Mileage wasn't provided.");
   } else if (facts.mileage > MAX_MILEAGE) {
     disqualifiers.push(
       `Reported mileage (${facts.mileage.toLocaleString()}) exceeds our ${MAX_MILEAGE.toLocaleString()}-mile limit.`
+    );
+  }
+
+  // --- recalls (hard gate: unresolved always produces at least "cannot-say") ---
+  // Evaluated last, deliberately: the actionable "go get proof of repair"
+  // instruction is only honest advice when resolving it could actually
+  // change the outcome. If the vehicle is already disqualified for an
+  // unrelated, unfixable reason (wrong vehicle type, too old), telling the
+  // driver to chase down a service record is misleading — it wouldn't help.
+  if (!facts.recalls.checked) {
+    unknowns.push("We couldn't check this vehicle's recall status.");
+  } else if (facts.recalls.openCampaigns.length > 0) {
+    const count = facts.recalls.openCampaigns.length;
+    const isSoleDisqualifier = disqualifiers.length === 0;
+    const base = `${count} open safety recall${count > 1 ? "s" : ""} on file, with no way to confirm the repair was completed on this specific vehicle — see recall details below.`;
+    disqualifiers.push(
+      isSoleDisqualifier
+        ? `${base} Please provide proof of completed repair (dealer service record) to proceed.`
+        : base
     );
   }
 

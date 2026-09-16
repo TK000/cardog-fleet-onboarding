@@ -10,6 +10,7 @@ import {
   getVpicFallback,
   getVinRecalls,
   getSpecsPreferNano,
+  readSpecAttribute,
 } from "@/lib/cardog";
 import { buildVehicleFacts } from "@/lib/facts";
 import { evaluateEligibility } from "@/lib/eligibility";
@@ -41,24 +42,44 @@ export async function POST(request: Request) {
     // Cardog identity decode — always attempt this first.
     const identity = await getVinIdentity(vin);
 
-    // vPIC fallback only when Cardog couldn't place the VIN in its catalog
-    // — no point spending the call (or the credits) otherwise. No model
-    // year to pass here: this only runs when Cardog's own decode failed,
-    // so we don't have a trustworthy year to hand vPIC either.
-    const vpic = identity.valid ? null : await getVpicFallback(vin);
+    // Specs come before the vPIC decision (not after, as in an earlier
+    // version of this route) specifically so we can check whether
+    // seatingCapacity came back usable before deciding whether vPIC is
+    // needed — see needsVpic below.
+    const specs = identity.valid ? await getSpecsPreferNano(identity) : null;
+
+    const seatingCapacityUsable = specs
+      ? (() => {
+          const result = readSpecAttribute(specs.sheet, "seatingCapacity");
+          return result.status === "value" && typeof result.value === "number";
+        })()
+      : false;
+
+    // vPIC fallback fires whenever Cardog's identity+specs, together,
+    // don't give us what the rule engine needs — not just on a total
+    // decode failure. Three real, empirically-observed gaps drive this:
+    //  - identity.valid === false: Cardog couldn't place the VIN at all.
+    //  - refs.vehicleType === null: seen on every Tesla identity response
+    //    we've pulled, even on a fully successful decode.
+    //  - seatingCapacity not a clean "value": seen on every real spec
+    //    sheet we've tested (Lucid, two Teslas, Ford F-150, Honda
+    //    Odyssey) — partial or fully absent every time, never clean.
+    // buildVehicleFacts already merges vpic data in per-field wherever the
+    // Cardog-sourced value is missing; this just makes sure vPIC actually
+    // gets called whenever any of those three gaps shows up, not only the
+    // first one. In practice this means vPIC runs on most real vehicles,
+    // not just decode failures — expected, given how rarely Cardog's
+    // specs sheet serves a clean seatingCapacity value.
+    const needsVpic = !identity.valid || identity.refs.vehicleType == null || !seatingCapacityUsable;
+    const vpic = needsVpic
+      ? await getVpicFallback(vin, identity.valid ? identity.year ?? undefined : undefined)
+      : null;
 
     // Recalls: always call, regardless of whether identity decoded.
     // Confirmed empirically (Toyota test VIN) that this degrades
     // gracefully — resolved: false, modelYearRef: null — rather than
     // erroring when there's no bridged model year.
     const recalls = await getVinRecalls(vin);
-
-    // Specs: nano-grain preferred, model-year grain as fallback, only when
-    // Cardog's own decode succeeded (vPIC alone can't give us a ref to look
-    // up specs with). NOTE: the nano-grain path is spec-verified but not
-    // yet confirmed against a real populated response — worth testing
-    // before trusting this in front of a reviewer.
-    const specs = identity.valid ? await getSpecsPreferNano(identity) : null;
 
     const facts = buildVehicleFacts({
       vin,

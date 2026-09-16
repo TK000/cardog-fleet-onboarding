@@ -155,14 +155,25 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
   let seatingCapacity: Fact<number>;
   if (specs) {
     const result = readSpecAttribute(specs.sheet, "seatingCapacity");
-    if (result.status === "value" && typeof result.value === "number") {
-      seatingCapacity = known(result.value, "cardog");
-    } else if (result.status === "value") {
-      // value exists but isn't numeric (shouldn't happen for this attribute
-      // per the catalog's declared type, but don't silently coerce)
-      seatingCapacity = unknown("unservable");
-    } else if (result.status === "absent" && vpicDecoded && vpic!.seats != null) {
+    const cardogValue = result.status === "value" && typeof result.value === "number" ? result.value : null;
+
+    if (cardogValue != null) {
+      seatingCapacity = known(cardogValue, "cardog");
+    } else if (vpicDecoded && vpic!.seats != null) {
+      // Cardog's result wasn't a clean, usable number — partial, trimDependent,
+      // unservable, absent, or non-numeric all land here. Previously this
+      // fallback only fired on "absent" specifically, which meant a
+      // perfectly good vPIC seat count — already fetched, since route.ts's
+      // seatingCapacityUsable check triggers the vPIC call on any of these
+      // statuses, not just absent — was silently discarded whenever Cardog
+      // said "partial" instead, which is the MORE common case in practice.
+      // vPIC decodes one specific build, same as the nano grain would, so
+      // using it here is no less principled than the doors precedent.
       seatingCapacity = known(vpic!.seats, "vpic-fallback");
+    } else if (result.status === "value") {
+      // value exists but isn't numeric — a real data-quality problem
+      // vPIC can't help with either.
+      seatingCapacity = unknown("unservable");
     } else if (result.status === "unservable") {
       // Carry the specific reason (e.g. "not-an-integer") through instead of
       // discarding it — distinguishes "data on file is malformed" from
