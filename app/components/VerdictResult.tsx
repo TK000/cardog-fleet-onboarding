@@ -3,7 +3,7 @@
 import type { VehicleFacts, CanonicalVehicleType } from "@/lib/facts";
 import type { Verdict } from "@/lib/eligibility";
 import { describeUnknownSeats } from "@/lib/eligibility";
-import { FactRow } from "./FactRow";
+import { FactRow } from "./Factrow";
 import { SourceTag } from "./SourceTag";
 
 const STATUS_COPY: Record<Verdict["status"], { label: string; color: string; bg: string }> = {
