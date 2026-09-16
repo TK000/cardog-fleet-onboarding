@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CardogClient } from "@cardog/api";
-import { evaluateEligibility, VehicleFacts } from "@/lib/eligibility";
+import { buildVehicleFacts } from "@/lib/facts";
+import { evaluateEligibility } from "@/lib/eligibility";
 import { getVinIdentity, getVpicFallback, getVinRecalls, getSpecsByModelYear } from "@/lib/cardog";
 
 // This client can be created once and reused across requests.
