@@ -40,7 +40,6 @@ export function OnboardingForm({
           onChange={(e) => setVin(e.target.value)}
           onBlur={() => setTouched(true)}
           maxLength={17}
-          placeholder="1FTFW1E85SF000201"
           autoComplete="off"
           spellCheck={false}
           className="mt-2 w-full border border-[#D8D6CE] bg-[#F3F4F0] px-3 py-2 font-[family-name:var(--font-mono)] text-sm uppercase tracking-wide text-[#14171F] outline-none focus-visible:border-[#14171F]"
@@ -59,7 +58,6 @@ export function OnboardingForm({
           min={0}
           value={mileage}
           onChange={(e) => setMileage(e.target.value)}
-          placeholder="42000"
           className="mt-2 w-full border border-[#D8D6CE] bg-[#F3F4F0] px-3 py-2 font-[family-name:var(--font-mono)] text-sm text-[#14171F] outline-none focus-visible:border-[#14171F]"
         />
         <div className="mt-1 text-xs text-[#8A8A80]">

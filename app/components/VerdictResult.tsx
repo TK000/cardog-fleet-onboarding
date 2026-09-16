@@ -88,10 +88,7 @@ export function VerdictResult({
         />
 
         {/* Recalls: not a Fact<T> — its own shape, rendered directly.
-            Uses recalls.asOf (Cardog's own field) with dateLabel="as of",
-            NOT facts.checkedAt — this is the one fact where Cardog tells us
-            its own data-currency date directly, so we cite that instead of
-            our own request time. */}
+            Uses recalls.asOf (Cardog's own field) with dateLabel="as of" */}
         <div className="flex items-start justify-between gap-4 border-b border-[#E4E2D8] py-3">
           <div className="pt-0.5 text-sm text-[#14171F]">Recalls</div>
           <div className="flex flex-col items-end gap-1 text-right">
