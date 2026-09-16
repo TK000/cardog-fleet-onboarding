@@ -9,7 +9,7 @@ import {
   getVinIdentity,
   getVpicFallback,
   getVinRecalls,
-  getSpecsPreferNano,
+  getSpecsByModelYear,
   readSpecAttribute,
 } from "@/lib/cardog";
 import { buildVehicleFacts } from "@/lib/facts";
@@ -51,11 +51,25 @@ export async function POST(request: Request) {
     // version of this route) specifically so we can check whether
     // seatingCapacity came back usable before deciding whether vPIC is
     // needed — see needsVpic below.
-    const specs = identity.valid ? await getSpecsPreferNano(identity) : null;
+    //
+    // Model-year grain only. A nano-grain, build-specific lookup existed
+    // earlier in this project (getSpecsByNano) but was removed: it 404s
+    // frequently for anything that isn't an exact-match catalogued
+    // production build, meaning most real requests paid for two sequential
+    // API calls instead of one, for a benefit (decode-sourced doors) that
+    // stopped mattering once doors was cut as a rule.
+    //
+    // refs.modelYear can be null even when identity.valid is true (a real,
+    // confirmed gap — see the 2026 Toyota RAV4 case: recognized as a valid
+    // VIN pattern, but not yet linked to a modelYear entity). Guard on it
+    // explicitly rather than letting the call fail.
+    const specs = identity.valid && identity.refs.modelYear
+      ? await getSpecsByModelYear(identity.refs.modelYear)
+      : null;
 
     const seatingCapacityUsable = specs
       ? (() => {
-          const result = readSpecAttribute(specs.sheet, "seatingCapacity");
+          const result = readSpecAttribute(specs, "seatingCapacity");
           return result.status === "value" && typeof result.value === "number";
         })()
       : false;

@@ -254,111 +254,18 @@ export async function getSpecsByModelYear(modelYearRef: string): Promise<SpecShe
 }
 
 /**
- * Matches components.schemas.SpecSheetBuild exactly. Same shape as
- * SpecSheet, minus the top-level `trim` field (a nano/build code can be
- * shared by several trims — see `trims` — so there's no single trim to
- * name), plus `modelYearRef` linking back to the aggregate grain. `links`
- * is not required here either, per the schema.
+ * NOTE: this used to be one of two specs functions — getSpecsByNano() also
+ * existed, preferred by a nano-first orchestration helper
+ * (getSpecsPreferNano). Both were removed: nano-grain 404s frequently in
+ * practice (any VIN that doesn't exactly match a catalogued production
+ * build), meaning most real requests paid for two sequential API calls
+ * instead of one. The main benefit nano grain offered — decode-sourced
+ * `doors` — stopped mattering once doors was cut as a rule, and the
+ * source:"decode" vs "catalogue" distinction it also provided was never
+ * surfaced in the UI either. This is now the only specs-fetching function
+ * in the app; SpecSheetBuild and CardogSpecsError were removed alongside
+ * it since nothing else used them.
  */
-export interface SpecSheetBuild {
-  ref: string;
-  grain: "nano";
-  year: number | null;
-  make: string | null;
-  model: string | null;
-  modelYearRef: string; // the build's model-year, the aggregate-grain dual
-  specVersion: number;
-  sections: Record<string, Record<string, SpecAttributeValue>>;
-  trimDependent: string[];
-  partial: SpecPartialEntry[];
-  trims: SpecTrim[]; // every trim that shares this build code — never a pick
-  unmapped: {
-    features: SpecFeatureEntry[];
-    attributes: string[];
-    unservable: SpecUnservableEntry[];
-  };
-  links?: Record<string, string>; // not required
-}
-
-/**
- * GET /v2/specs/nano:{code} — spec sheet for one exact build. Prefer this
- * over getSpecsByModelYear() when you have a decoded VIN: `identity.nano`
- * is populated whenever `identity.valid` is true (derived straight from VIN
- * positions 1-8 + 10), unlike `identity.trim`, which is frequently null even
- * on a successfully decoded VIN — so nano is the more reliable grain to key
- * off, not just the more precise one. Values here carry `source: "decode"`
- * for the decoder's own answer; where a linked trim disagrees, that shows
- * up as `disagreement` on the value rather than forcing the id into
- * trimDependent.
- */
-/**
- * Thrown by getSpecsByNano so callers can distinguish "no sheet at this
- * grain" (404 — expected, fall through) from a real problem (401, 500,
- * network error — worth knowing about, not silently swallowing).
- */
-export class CardogSpecsError extends Error {
-  constructor(message: string, public status: number) {
-    super(message);
-    this.name = "CardogSpecsError";
-  }
-}
-
-/**
- * GET /v2/specs/nano:{code} — spec sheet for one exact build. Prefer this
- * over getSpecsByModelYear() when you have a decoded VIN: `identity.nano`
- * is populated whenever `identity.valid` is true (derived straight from VIN
- * positions 1-8 + 10), unlike `identity.trim`, which is frequently null even
- * on a successfully decoded VIN — so nano is the more reliable grain to key
- * off, not just the more precise one. Values here carry `source: "decode"`
- * for the decoder's own answer; where a linked trim disagrees, that shows
- * up as `disagreement` on the value rather than forcing the id into
- * trimDependent.
- */
-export async function getSpecsByNano(nanoRef: string): Promise<SpecSheetBuild> {
-  const res = await fetch(
-    `${CARDOG_BASE}/specs/${encodeURIComponent(nanoRef)}`,
-    { headers: cardogHeaders() }
-  );
-  if (!res.ok) {
-    throw new CardogSpecsError(`Cardog nano-grain specs lookup failed: ${res.status}`, res.status);
-  }
-  return res.json();
-}
-
-/**
- * Preferred sourcing order for a decoded VIN: nano-grain first (always
- * available, most precise, decode-authoritative), model-year grain as the
- * fallback if the nano lookup 404s (no build-level sheet for this exact
- * code — an expected, benign case) or the identity call lacks a nano ref.
- * Any other failure (auth, rate limit, network, 5xx) is logged and
- * re-thrown rather than silently swallowed — those represent a real
- * problem, and silently falling back on every error would hide it forever
- * behind a fallback that always "succeeds." Returns which grain actually
- * answered, since that's a fact worth surfacing next to any value it
- * sourced ("source: build-specific decode" vs. "source: model-year
- * aggregate").
- */
-export async function getSpecsPreferNano(
-  identity: VinIdentity
-): Promise<{ sheet: SpecSheet | SpecSheetBuild; grain: "nano" | "model-year" } | null> {
-  if (identity.nano) {
-    try {
-      return { sheet: await getSpecsByNano(identity.nano), grain: "nano" };
-    } catch (err) {
-      if (!(err instanceof CardogSpecsError) || err.status !== 404) {
-        console.error("Nano-grain specs lookup failed unexpectedly, falling back to model-year", err);
-      }
-      // fall through to model-year grain below either way — a fallback is
-      // still the right move even on an unexpected error, but now it's a
-      // logged, visible decision rather than a silent one.
-    }
-  }
-  if (identity.refs.modelYear) {
-    return { sheet: await getSpecsByModelYear(identity.refs.modelYear), grain: "model-year" };
-  }
-  return null; // neither ref available — identity.valid was presumably false
-}
-
 /**
  * Look up a single attribute (e.g. "seatingCapacity", "doors") across a
  * spec sheet's five possible states. eligibility.ts should read attributes
@@ -367,8 +274,7 @@ export async function getSpecsPreferNano(
  * place. "unservable" and "absent" are both "we have nothing" for rule
  * purposes, but worth distinct copy: unservable means Cardog checked and
  * explicitly withheld it (with a reason); absent means it was never
- * mentioned at all. Works on either grain — SpecSheet or SpecSheetBuild —
- * since both share the sections/trimDependent/partial/unmapped shape.
+ * mentioned at all.
  */
 export type SpecAttributeResult =
   | { status: "value"; value: SpecValue; source: "decode" | "catalogue" }
@@ -378,7 +284,7 @@ export type SpecAttributeResult =
   | { status: "absent" };
 
 export function readSpecAttribute(
-  sheet: SpecSheet | SpecSheetBuild,
+  sheet: SpecSheet,
   attributeId: string
 ): SpecAttributeResult {
   if (sheet.trimDependent.includes(attributeId)) {

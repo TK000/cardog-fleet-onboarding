@@ -13,7 +13,6 @@ import type {
   VinIdentity,
   VinRecalls,
   SpecSheet,
-  SpecSheetBuild,
   VpicFallbackResult,
 } from "./cardog";
 import { readSpecAttribute } from "./cardog";
@@ -121,7 +120,7 @@ export interface BuildFactsInput {
   vin: string;
   identity: VinIdentity | null;
   vpic?: VpicFallbackResult | null; // present when Cardog's own decode failed (identity.valid === false)
-  specs?: { sheet: SpecSheet | SpecSheetBuild; grain: "nano" | "model-year" } | null;
+  specs?: SpecSheet | null;
   recalls: VinRecalls;
   mileage: number | null;
   checkedAt: string; // ISO timestamp; pass new Date().toISOString() from route.ts at request time
@@ -165,7 +164,7 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
   // --- seatingCapacity ---
   let seatingCapacity: Fact<number>;
   if (specs) {
-    const result = readSpecAttribute(specs.sheet, "seatingCapacity");
+    const result = readSpecAttribute(specs, "seatingCapacity");
     const cardogValue = result.status === "value" && typeof result.value === "number" ? result.value : null;
 
     if (cardogValue != null) {

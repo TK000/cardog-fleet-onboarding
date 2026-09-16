@@ -123,19 +123,21 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
   return { status: "eligible", reasons: ["All checks passed."] };
 }
 
+const SEATS_NEEDS_REVIEW = "This will need manual review to confirm seating capacity before onboarding can proceed.";
+
 export function describeUnknownSeats(reason: UnknownReason, detail?: string): string {
   switch (reason) {
     case "trimDependent":
-      return "Seating capacity varies by trim for this model year, and we don't have the specific trim.";
+      return `Seating capacity varies by trim for this model year, and we don't have the specific trim. ${SEATS_NEEDS_REVIEW}`;
     case "partial":
-      return "Seating capacity isn't reported for all trims of this model year, and we can't confirm this one.";
+      return `Seating capacity isn't reported for all trims of this model year, and we can't confirm this one. ${SEATS_NEEDS_REVIEW}`;
     case "unservable":
       return detail
-        ? `Seating capacity is on file but couldn't be used (${detail}) — this looks like a data quality issue, not a missing record.`
-        : "Seating capacity is on file but couldn't be used.";
+        ? `Seating capacity is on file but couldn't be used (${detail}) — this looks like a data quality issue, not a missing record. ${SEATS_NEEDS_REVIEW}`
+        : `Seating capacity is on file but couldn't be used. ${SEATS_NEEDS_REVIEW}`;
     case "absent":
-      return "Seating capacity was never reported for this vehicle.";
+      return `Seating capacity was never reported for this vehicle. ${SEATS_NEEDS_REVIEW}`;
     case "not-decoded":
-      return "We couldn't confirm seating capacity.";
+      return `We couldn't confirm seating capacity. ${SEATS_NEEDS_REVIEW}`;
   }
 }
