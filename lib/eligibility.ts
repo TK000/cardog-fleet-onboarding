@@ -98,7 +98,7 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
   return { status: "eligible", reasons: ["All checks passed."] };
 }
 
-function describeUnknownSeats(reason: UnknownReason, detail?: string): string {
+export function describeUnknownSeats(reason: UnknownReason, detail?: string): string {
   switch (reason) {
     case "trimDependent":
       return "Seating capacity varies by trim for this model year, and we don't have the specific trim.";
