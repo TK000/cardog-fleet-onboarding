@@ -13,6 +13,7 @@ export function FactRow<T>({
   fact,
   format,
   unknownReason,
+  checkedAt,
 }: {
   label: string;
   fact: Fact<T>;
@@ -23,6 +24,11 @@ export function FactRow<T>({
   // in practice (year, vehicle type — both are identity-sourced, not
   // spec-sourced, so they never hit trimDependent/partial/unservable).
   unknownReason?: (reason: UnknownReason, detail?: string) => string;
+  // When this specific check ran (VehicleFacts.checkedAt). Cardog doesn't
+  // give us a per-field "last updated" date for identity/specs facts, so
+  // this is the most honest date available — labeled "checked", not
+  // "as of", on the SourceTag itself.
+  checkedAt: string;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-[#E4E2D8] py-3 last:border-b-0">
@@ -33,10 +39,7 @@ export function FactRow<T>({
             <div className="font-[family-name:var(--font-mono)] text-sm text-[#14171F]">
               {format(fact.value)}
             </div>
-            <SourceTag
-              source={fact.source}
-              method={fact.source === "cardog" ? "decoded" : undefined}
-            />
+            <SourceTag source={fact.source} method="decoded" date={checkedAt} dateLabel="checked" />
           </>
         ) : (
           <>

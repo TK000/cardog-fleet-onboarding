@@ -24,8 +24,11 @@ export interface Verdict {
 /**
  * Precedence, by design: a known disqualifying fact always wins over an
  * unrelated unknown — if the vehicle is definitely too old, we say so, even
- * if we also couldn't verify the recall status. Only when there are zero
- * known disqualifiers AND zero unknowns does the verdict become "eligible."
+ * if we also couldn't verify something else. Only when there are zero known
+ * disqualifiers AND zero unknowns does the verdict become "eligible."
+ *
+ * Recalls are handled outside that disqualifiers/unknowns split entirely —
+ * see the block below for why.
  */
 export function evaluateEligibility(facts: VehicleFacts): Verdict {
   if (!facts.decoded) {
@@ -79,20 +82,33 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
     );
   }
 
-  // --- recalls (hard gate: unresolved always produces at least "cannot-say") ---
-  // Evaluated last, deliberately: the actionable "go get proof of repair"
-  // instruction is only honest advice when resolving it could actually
-  // change the outcome. If the vehicle is already disqualified for an
-  // unrelated, unfixable reason (wrong vehicle type, too old), telling the
-  // driver to chase down a service record is misleading — it wouldn't help.
+  // --- recalls ---
+  // Deliberately NOT a disqualifier. Cardog can confirm a campaign exists
+  // for this make/model/year; it cannot confirm whether THIS unit was
+  // already repaired. Treating that as an automatic rejection would claim
+  // certainty we don't have — the honest verdict is "cannot say, needs
+  // manual review," with the specific campaigns surfaced and a concrete
+  // ask (proof of completed repair) rather than a silent block.
+  //
+  // This pushes into the normal `unknowns` array, same as every other
+  // unresolved check — meaning it only shows up in `reasons` when it's
+  // actually part of why the verdict landed where it did. If the vehicle
+  // is ALSO disqualified for an unrelated reason (wrong vehicle type),
+  // the recall note won't appear here — reasons is meant to answer "why
+  // this verdict," and recalls didn't cause it in that case. Full recall
+  // detail is still always shown in the facts panel below, unconditionally
+  // — nothing is hidden, it's just not duplicated somewhere it could be
+  // misread as a contributing factor.
   if (!facts.recalls.checked) {
     unknowns.push("We couldn't check this vehicle's recall status.");
   } else if (facts.recalls.openCampaigns.length > 0) {
     const count = facts.recalls.openCampaigns.length;
-    const isSoleDisqualifier = disqualifiers.length === 0;
     const base = `${count} open safety recall${count > 1 ? "s" : ""} on file, with no way to confirm the repair was completed on this specific vehicle — see recall details below.`;
-    disqualifiers.push(
-      isSoleDisqualifier
+    // The "go get proof of repair" instruction is only honest advice when
+    // resolving it could actually change the outcome — i.e. nothing else
+    // already disqualifies this vehicle.
+    unknowns.push(
+      disqualifiers.length === 0
         ? `${base} Please provide proof of completed repair (dealer service record) to proceed.`
         : base
     );

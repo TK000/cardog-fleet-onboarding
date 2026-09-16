@@ -18,8 +18,9 @@ function cleanFacts(overrides: Partial<VehicleFacts> = {}): VehicleFacts {
     year: { status: "known", value: new Date().getFullYear(), source: "cardog" },
     vehicleType: { status: "known", value: "passenger-car", source: "cardog" },
     seatingCapacity: { status: "known", value: 5, source: "cardog" },
-    recalls: { checked: true, openCampaigns: [], excludedInconsequentialCount: 0 },
+    recalls: { checked: true, openCampaigns: [], excludedInconsequentialCount: 0, asOf: "2026-01-01T00:00:00Z" },
     mileage: 30_000,
+    checkedAt: "2026-01-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -112,41 +113,51 @@ describe("evaluateEligibility — seatingCapacity", () => {
 describe("evaluateEligibility — recalls", () => {
   it("produces cannot-say when recall status could not be checked", () => {
     const verdict = evaluateEligibility(
-      cleanFacts({ recalls: { checked: false, openCampaigns: [], excludedInconsequentialCount: 0 } })
+      cleanFacts({ recalls: { checked: false, openCampaigns: [], excludedInconsequentialCount: 0, asOf: null } })
     );
     expect(verdict.status).toBe("cannot-say");
   });
 
-  it("disqualifies on a single open campaign", () => {
+  it("produces cannot-say (not not-eligible) on a single open campaign", () => {
+    // Deliberate: Cardog can confirm a campaign exists for this model
+    // year, not whether THIS unit was repaired. That's genuine ambiguity,
+    // not a verified disqualification — the brief's own framing of the
+    // mandated recall question.
     const verdict = evaluateEligibility(
       cleanFacts({
         recalls: {
           checked: true,
           openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: "LABEL", correctiveAction: "Replace label." }],
           excludedInconsequentialCount: 0,
+          asOf: "2026-01-01T00:00:00Z",
         },
       })
     );
-    expect(verdict.status).toBe("not-eligible");
+    expect(verdict.status).toBe("cannot-say");
   });
 
-  it("includes the 'provide proof of repair' instruction when the recall is the sole disqualifier", () => {
+  it("includes the 'provide proof of repair' instruction when nothing else would block eligibility", () => {
     const verdict = evaluateEligibility(
       cleanFacts({
         recalls: {
           checked: true,
           openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: null, correctiveAction: null }],
           excludedInconsequentialCount: 0,
+          asOf: "2026-01-01T00:00:00Z",
         },
       })
     );
     expect(verdict.reasons.some((r) => /provide proof/i.test(r))).toBe(true);
   });
 
-  it("omits the 'provide proof of repair' instruction when another disqualifier already exists", () => {
-    // Regression test for the truck + recalls bug: telling a driver to
-    // chase down a service record is misleading when the vehicle is
-    // already disqualified for an unrelated, unfixable reason.
+  it("keeps reasons focused on the actual disqualifier when recalls didn't cause the verdict", () => {
+    // Recalls are NOT a disqualifier on their own (see the cannot-say test
+    // above). When something else (wrong vehicle type) already makes the
+    // verdict not-eligible, the recall note shouldn't appear in `reasons`
+    // either — it wasn't part of why this verdict happened, and including
+    // it risks implying it was a contributing factor. Full recall detail
+    // is still always shown in the facts panel (VerdictResult), just not
+    // duplicated into this list.
     const verdict = evaluateEligibility(
       cleanFacts({
         vehicleType: { status: "known", value: "truck", source: "cardog" },
@@ -154,13 +165,14 @@ describe("evaluateEligibility — recalls", () => {
           checked: true,
           openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: null, correctiveAction: null }],
           excludedInconsequentialCount: 0,
+          asOf: "2026-01-01T00:00:00Z",
         },
       })
     );
     expect(verdict.status).toBe("not-eligible");
     expect(verdict.reasons.some((r) => /provide proof/i.test(r))).toBe(false);
-    // The recall should still be mentioned as a fact, just without the CTA.
-    expect(verdict.reasons.some((r) => /open safety recall/i.test(r))).toBe(true);
+    expect(verdict.reasons.some((r) => /open safety recall/i.test(r))).toBe(false);
+    expect(verdict.reasons.some((r) => /truck/i.test(r))).toBe(true);
   });
 
   it("does not disqualify on an Inconsequential-only recall set", () => {
@@ -169,7 +181,7 @@ describe("evaluateEligibility — recalls", () => {
     // them — this test documents that evaluateEligibility trusts that
     // filtering rather than re-implementing it.
     const verdict = evaluateEligibility(
-      cleanFacts({ recalls: { checked: true, openCampaigns: [], excludedInconsequentialCount: 1 } })
+      cleanFacts({ recalls: { checked: true, openCampaigns: [], excludedInconsequentialCount: 1, asOf: "2026-01-01T00:00:00Z" } })
     );
     expect(verdict.status).toBe("eligible");
   });

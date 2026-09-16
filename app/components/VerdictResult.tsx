@@ -3,7 +3,7 @@
 import type { VehicleFacts, CanonicalVehicleType } from "@/lib/facts";
 import type { Verdict } from "@/lib/eligibility";
 import { describeUnknownSeats } from "@/lib/eligibility";
-import { FactRow } from "./Factrow";
+import { FactRow } from "./FactRow";
 import { SourceTag } from "./SourceTag";
 
 const STATUS_COPY: Record<Verdict["status"], { label: string; color: string; bg: string }> = {
@@ -71,20 +71,27 @@ export function VerdictResult({
           label="Model year"
           fact={facts.year}
           format={(v) => String(v)}
+          checkedAt={facts.checkedAt}
         />
         <FactRow
           label="Vehicle type"
           fact={facts.vehicleType}
           format={(v) => VEHICLE_TYPE_LABELS[v]}
+          checkedAt={facts.checkedAt}
         />
         <FactRow
           label="Seats"
           fact={facts.seatingCapacity}
           format={(v) => `${v} seats`}
           unknownReason={describeUnknownSeats}
+          checkedAt={facts.checkedAt}
         />
 
-        {/* Recalls: not a Fact<T> — its own shape, rendered directly */}
+        {/* Recalls: not a Fact<T> — its own shape, rendered directly.
+            Uses recalls.asOf (Cardog's own field) with dateLabel="as of",
+            NOT facts.checkedAt — this is the one fact where Cardog tells us
+            its own data-currency date directly, so we cite that instead of
+            our own request time. */}
         <div className="flex items-start justify-between gap-4 border-b border-[#E4E2D8] py-3">
           <div className="pt-0.5 text-sm text-[#14171F]">Recalls</div>
           <div className="flex flex-col items-end gap-1 text-right">
@@ -98,7 +105,12 @@ export function VerdictResult({
             ) : facts.recalls.openCampaigns.length === 0 ? (
               <>
                 <div className="text-sm text-[#14171F]">None open</div>
-                <SourceTag source="cardog" method="checked" />
+                <SourceTag
+                  source="cardog"
+                  method="checked"
+                  date={facts.recalls.asOf ?? undefined}
+                  dateLabel="as of"
+                />
                 {facts.recalls.excludedInconsequentialCount > 0 && (
                   <div className="text-xs text-[#8A8A80]">
                     +{facts.recalls.excludedInconsequentialCount} non-safety notice
@@ -111,7 +123,12 @@ export function VerdictResult({
                 <div className="text-sm font-medium text-[#A23B2E]">
                   {facts.recalls.openCampaigns.length} open
                 </div>
-                <SourceTag source="cardog" method="checked" />
+                <SourceTag
+                  source="cardog"
+                  method="checked"
+                  date={facts.recalls.asOf ?? undefined}
+                  dateLabel="as of"
+                />
               </>
             )}
           </div>
@@ -146,7 +163,7 @@ export function VerdictResult({
                 <div className="font-[family-name:var(--font-mono)] text-sm text-[#14171F]">
                   {facts.mileage.toLocaleString()} mi
                 </div>
-                <SourceTag source="driver-reported" />
+                <SourceTag source="driver-reported" date={facts.checkedAt} dateLabel="reported" />
               </>
             ) : (
               <div className="text-sm italic text-[#8A8A80]">not provided</div>

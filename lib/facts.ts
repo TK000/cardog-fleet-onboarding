@@ -91,6 +91,8 @@ export interface RecallFacts {
   // surfacing on the results page, just not as an eligibility blocker.
   openCampaigns: OpenRecallSummary[];
   excludedInconsequentialCount: number; // so the UI can say "+1 non-safety notice on file" without re-deriving it
+  asOf: string | null; // Cardog's own field: when the recall data was last updated. Real currency
+  // date from the source, not our own request time — null when recalls couldn't be checked at all.
 }
 
 export interface VehicleFacts {
@@ -101,6 +103,14 @@ export interface VehicleFacts {
   seatingCapacity: Fact<number>;
   recalls: RecallFacts;
   mileage: number | null; // driver-reported, unverified — null if not provided; never sourced from an API
+  // ISO timestamp of when THIS check ran — i.e. when our server made the
+  // Cardog/vPIC requests. This is NOT the same claim as recalls.asOf: we
+  // don't have a per-field "last updated" date from Cardog for identity or
+  // specs data (no such field exists in either schema), so "when we
+  // checked" is the most honest date available for year/vehicleType/
+  // seatingCapacity/mileage. Conflating the two would overstate what
+  // Cardog actually tells us.
+  checkedAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,10 +124,11 @@ export interface BuildFactsInput {
   specs?: { sheet: SpecSheet | SpecSheetBuild; grain: "nano" | "model-year" } | null;
   recalls: VinRecalls;
   mileage: number | null;
+  checkedAt: string; // ISO timestamp; pass new Date().toISOString() from route.ts at request time
 }
 
 export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
-  const { vin, identity, vpic, specs, recalls, mileage } = input;
+  const { vin, identity, vpic, specs, recalls, mileage, checkedAt } = input;
 
   const cardogDecoded = identity?.valid === true;
   // "Decoded" means we got the two fields every rule depends on — not an
@@ -219,7 +230,9 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
       checked: recalls.resolved,
       openCampaigns,
       excludedInconsequentialCount: inconsequential.length,
+      asOf: recalls.asOf ?? null,
     },
     mileage,
+    checkedAt,
   };
 }

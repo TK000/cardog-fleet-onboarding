@@ -73,6 +73,7 @@ describe("buildVehicleFacts — vehicleType", () => {
       specs: null,
       recalls: baseRecalls(),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.vehicleType).toEqual({ status: "known", value: "passenger-car", source: "cardog" });
   });
@@ -85,6 +86,7 @@ describe("buildVehicleFacts — vehicleType", () => {
       specs: null,
       recalls: baseRecalls(),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.vehicleType).toEqual({ status: "known", value: "passenger-car", source: "vpic-fallback" });
   });
@@ -118,6 +120,7 @@ describe("buildVehicleFacts — seatingCapacity (regression coverage)", () => {
       specs: { sheet, grain: "model-year" },
       recalls: baseRecalls(),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.seatingCapacity).toEqual({ status: "known", value: 5, source: "vpic-fallback" });
   });
@@ -145,6 +148,7 @@ describe("buildVehicleFacts — seatingCapacity (regression coverage)", () => {
       specs: { sheet, grain: "model-year" },
       recalls: baseRecalls(),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.seatingCapacity).toEqual({ status: "unknown", reason: "partial" });
   });
@@ -172,6 +176,7 @@ describe("buildVehicleFacts — seatingCapacity (regression coverage)", () => {
       specs: { sheet, grain: "model-year" },
       recalls: baseRecalls(),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.seatingCapacity).toEqual({ status: "known", value: 7, source: "cardog" });
   });
@@ -218,6 +223,7 @@ describe("buildVehicleFacts — recalls", () => {
         ],
       }),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.recalls.openCampaigns).toHaveLength(1);
     expect(facts.recalls.openCampaigns[0].campaignNumber).toBe("26V001000");
@@ -232,6 +238,7 @@ describe("buildVehicleFacts — recalls", () => {
       specs: null,
       recalls: baseRecalls({ resolved: false, modelYearRef: null, source: undefined }),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.recalls.checked).toBe(false);
   });
@@ -246,6 +253,7 @@ describe("buildVehicleFacts — decoded", () => {
       specs: null,
       recalls: baseRecalls(),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.decoded).toBe(true);
   });
@@ -258,6 +266,7 @@ describe("buildVehicleFacts — decoded", () => {
       specs: null,
       recalls: baseRecalls({ resolved: false, modelYearRef: null }),
       mileage: null,
+      checkedAt: "2026-01-01T00:00:00Z",
     });
     expect(facts.decoded).toBe(false);
   });

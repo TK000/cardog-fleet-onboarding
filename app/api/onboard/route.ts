@@ -39,6 +39,11 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Captured before any Cardog/vPIC calls — this is the honest "when did
+    // we check" timestamp for every fact except recalls, which carries its
+    // own real asOf date from Cardog directly.
+    const checkedAt = new Date().toISOString();
+
     // Cardog identity decode — always attempt this first.
     const identity = await getVinIdentity(vin);
 
@@ -88,6 +93,7 @@ export async function POST(request: Request) {
       specs,
       recalls,
       mileage,
+      checkedAt,
     });
 
     const verdict = evaluateEligibility(facts);
