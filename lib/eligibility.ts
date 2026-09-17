@@ -39,7 +39,7 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
       );
     }
   } else {
-    unknowns.push("We couldn't confirm the model year.");
+    unknowns.push("We couldn't confirm the model year. This will need manual review before onboarding can proceed.");
   }
 
   // --- vehicleType ---
@@ -48,14 +48,14 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
       disqualifiers.push(`Vehicle type (${facts.vehicleType.value}) isn't eligible for this fleet.`);
     }
   } else {
-    unknowns.push("We couldn't confirm the vehicle type.");
+    unknowns.push("We couldn't confirm the vehicle type. This will need manual review before onboarding can proceed.");
   }
 
   // --- seatingCapacity ---
   if (facts.seatingCapacity.status === "known") {
     if (facts.seatingCapacity.value < MIN_SEATING_CAPACITY) {
       disqualifiers.push(
-        `Seats ${facts.seatingCapacity.value}; we require at least ${MIN_SEATING_CAPACITY}.`
+        `Vehicle has ${facts.seatingCapacity.value} seats; we require at least ${MIN_SEATING_CAPACITY}.`
       );
     }
   } else {
@@ -64,7 +64,7 @@ export function evaluateEligibility(facts: VehicleFacts): Verdict {
 
   // --- mileage (driver-reported, unverified) ---
   if (facts.mileage == null) {
-    unknowns.push("Mileage wasn't provided.");
+    unknowns.push("Mileage wasn't provided. Please provide the current odometer reading for this vehicle.");
   } else if (facts.mileage > MAX_MILEAGE) {
     disqualifiers.push(
       `Reported mileage (${facts.mileage.toLocaleString()}) exceeds our ${MAX_MILEAGE.toLocaleString()}-mile limit.`
