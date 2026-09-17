@@ -12,10 +12,12 @@ I thought of this from a rideshare angle, and I chose rules that map directly to
 
 Recalls are checked too, but they work differently: an open recall never makes a vehicle not eligible on its own. Any missing data or open recall results in a "cannot say" verdict instead, with a call to action to resolve the unknown (when nothing else already disqualifies the vehicle).
 
+Next.js + TypeScript, deployed on Vercel
+
 **What I used and why:**  
 1. The Cardog api: for VIN identity decode, specs (model-year grain), and recalls. This is the primary source for everything
 2. NHTSA’s vPIC API: as a fallback, in case Cardog cannot decode the VIN or doesn’t return data needed for my rule set (eg vehicle type or number of seats). An example of a VIN where this made a difference: WP0CB2A8XMS225298 (Cardog didn’t return data on the vehicle type and number of seats so we sourced it from NHTSA)
-3. Claude: I used Claude for guidance on using Next.js and Vercel, since I hadn’t used those technologies before (I have experience with typescript, but on the backend). I also used it to generate a first draft of my code which I then verified and edited. I also used it to generate and find VINs to test my code with.
+3. Claude: used throughout, in an iterative loop: prompt, review, catch something specific, go back. That process surfaced and fixed real issues, including a data-merge bug that silently discarded valid seat-count data and a misleading driver-facing message. Also used for guidance on Next.js and Vercel, both new to me (my TypeScript experience is backend), and to generate and find test VINs
 
 **The one choice I'd defend:**  
 Requiring a VIN, rather than free-text make/model/year. This adds some friction (since most drivers don't have their VIN memorized) but a VIN either decodes to one exact vehicle or it doesn't. Free text would have to go through Cardog's entity-resolve step instead, which can come back with several candidate matches and confidence scores rather than one clear answer. Handling that well would mean building a disambiguation UI and picking a confidence threshold to trust – this would mean more moving parts and another source of uncertainty on top of the gaps Cardog's own data already has. I went with the simpler, more deterministic option.
