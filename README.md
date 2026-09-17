@@ -4,7 +4,8 @@ A fleet-onboarding eligibility check for Cardog's engineering take-home (brief 2
 A driver submits a VIN and optional mileage; the app decodes the vehicle, checks it against a defined rule set, and returns **eligible**, **not eligible**, or **cannot say** — with plain-language reasons, and every fact tagged with where it came from and when it was checked.
 
 **Live:** [https://cardog-fleet-onboarding-orpin.vercel.app/](https://cardog-fleet-onboarding-orpin.vercel.app/)
-**Write-up:** [WRITEUP.md](./WRITEUP.md) — the reasoning behind the rules, the one design choice defended, and the answer to the brief's required question.
+
+**Write-up:** [WRITEUP.md](./WRITEUP.md)
 
 ---
 
@@ -53,7 +54,7 @@ npm test
 Any valid 17-character VIN works. Two real ones to start with if you want a quick look:
 
 - `4T1DAACK5SU614616` — a 2025 Toyota Camry
-- `JF2SKAJC8SG000101` — a 2025 Subaru Forester with real open recalls
+- `JF2SKAJC8SG000101` — a 2025 Subaru Forester
 
 ## What it checks
 
@@ -73,8 +74,8 @@ lib/
 
 app/
   api/onboard/route.ts   Orchestrates the above. The only place that touches the network.
-  page.tsx                Client page: renders the form, then the results.
-  components/             SourceTag, FactRow, OnboardingForm, VerdictResult.
+  page.tsx               Client page: renders the form, then the results.
+  components/            SourceTag, FactRow, OnboardingForm, VerdictResult.
 
 tests/lib/            Vitest tests, mirroring the lib/ structure above.
 ```
@@ -85,4 +86,3 @@ If you're redeploying this yourself on Vercel:
 
 - Set `CARDOG_API_KEY` under Project Settings → Environment Variables
 - Deployment Protection must be **disabled** (Settings → Deployment Protection)
-
