@@ -82,7 +82,7 @@ export function VerdictResult({
           label="Seats"
           fact={facts.seatingCapacity}
           format={(v) => `${v} seats`}
-          unknownMessage="We couldn't confirm this vehicle's seating capacity. This will need manual review before onboarding can proceed."
+          unknownMessage="We couldn't confirm this vehicle's seating capacity."
           checkedAt={facts.checkedAt}
         />
 
