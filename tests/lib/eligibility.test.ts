@@ -51,8 +51,8 @@ describe("evaluateEligibility — year", () => {
     expect(verdict.status).toBe("eligible");
   });
 
-  it("produces cannot-say (not a silent pass) when year is unknown", () => {
-    const verdict = evaluateEligibility(cleanFacts({ year: { status: "unknown", reason: "not-decoded" } }));
+  it("produces cannot-say when year is unknown", () => {
+    const verdict = evaluateEligibility(cleanFacts({ year: { status: "unknown" } }));
     expect(verdict.status).toBe("cannot-say");
   });
 });
@@ -83,23 +83,10 @@ describe("evaluateEligibility — seatingCapacity", () => {
     expect(verdict.reasons.some((r) => /seats 2/i.test(r))).toBe(true);
   });
 
-  it("gives a specific message for trimDependent, distinct from absent", () => {
-    const trimDependent = evaluateEligibility(
-      cleanFacts({ seatingCapacity: { status: "unknown", reason: "trimDependent" } })
-    );
-    const absent = evaluateEligibility(
-      cleanFacts({ seatingCapacity: { status: "unknown", reason: "absent" } })
-    );
-    expect(trimDependent.status).toBe("cannot-say");
-    expect(absent.status).toBe("cannot-say");
-    expect(trimDependent.reasons[0]).not.toBe(absent.reasons[0]);
-  });
-
-  it("surfaces the specific unservable reason in the message when present", () => {
-    const verdict = evaluateEligibility(
-      cleanFacts({ seatingCapacity: { status: "unknown", reason: "unservable", detail: "not-an-integer" } })
-    );
-    expect(verdict.reasons[0]).toMatch(/not-an-integer/);
+  it("produces cannot-say when seating capacity is unknown", () => {
+    const verdict = evaluateEligibility(cleanFacts({ seatingCapacity: { status: "unknown" } }));
+    expect(verdict.status).toBe("cannot-say");
+    expect(verdict.reasons.some((r) => /seating capacity/i.test(r))).toBe(true);
   });
 });
 
@@ -147,7 +134,7 @@ describe("evaluateEligibility — precedence", () => {
     const verdict = evaluateEligibility(
       cleanFacts({
         year: { status: "known", value: new Date().getFullYear() - 20, source: "cardog" },
-        seatingCapacity: { status: "unknown", reason: "absent" },
+        seatingCapacity: { status: "unknown" },
       })
     );
     expect(verdict.status).toBe("not-eligible");

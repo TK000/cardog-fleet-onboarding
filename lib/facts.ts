@@ -17,24 +17,16 @@ import { readSpecAttribute } from "./cardog";
 
 export type FactSource = "cardog" | "vpic-fallback";
 
-// Why a fact is unknown
-export type UnknownReason =
-  | "trimDependent" // trims disagree
-  | "partial" // only some trims report this attribute
-  | "unservable" // Cardog checked and explicitly withheld it
-  | "absent" // never appears anywhere in the spec sheet
-  | "not-decoded"; // no identity/spec source resolved at all
-
 export type Fact<T> =
   | { status: "known"; value: T; source: FactSource }
-  | { status: "unknown"; reason: UnknownReason; detail?: string };
+  | { status: "unknown" };
 
 function known<T>(value: T, source: FactSource): Fact<T> {
   return { status: "known", value, source };
 }
 
-function unknown<T>(reason: UnknownReason, detail?: string): Fact<T> {
-  return { status: "unknown", reason, detail };
+function unknown<T>(): Fact<T> {
+  return { status: "unknown" };
 }
 
 // Canonical vehicle-type buckets, collapsing both Cardog's ref format
@@ -119,7 +111,7 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
   } else if (vpicDecoded && vpic!.year != null) {
     year = known(vpic!.year, "vpic-fallback");
   } else {
-    year = unknown("not-decoded");
+    year = unknown();
   }
 
   // --- vehicleType ---
@@ -131,30 +123,21 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
   } else if (vpicType) {
     vehicleType = known(vpicType, "vpic-fallback");
   } else {
-    vehicleType = unknown("not-decoded");
+    vehicleType = unknown();
   }
 
   // --- seatingCapacity ---
   let seatingCapacity: Fact<number>;
-  if (specs) {
-    const result = readSpecAttribute(specs, "seatingCapacity");
-    const cardogValue = result.status === "value" && typeof result.value === "number" ? result.value : null;
+  const specResult = specs ? readSpecAttribute(specs, "seatingCapacity") : null;
+  const cardogSeats =
+    specResult?.status === "value" && typeof specResult.value === "number" ? specResult.value : null;
 
-    if (cardogValue != null) {
-      seatingCapacity = known(cardogValue, "cardog");
-    } else if (vpicDecoded && vpic!.seats != null) {
-      seatingCapacity = known(vpic!.seats, "vpic-fallback");
-    } else if (result.status === "value") { // value exists but isn't numeric
-      seatingCapacity = unknown("unservable");
-    } else if (result.status === "unservable") {
-      seatingCapacity = unknown("unservable", result.reason);
-    } else {
-      seatingCapacity = unknown(result.status);
-    }
+  if (cardogSeats != null) {
+    seatingCapacity = known(cardogSeats, "cardog");
   } else if (vpicDecoded && vpic!.seats != null) {
     seatingCapacity = known(vpic!.seats, "vpic-fallback");
   } else {
-    seatingCapacity = unknown("not-decoded");
+    seatingCapacity = unknown();
   }
 
   // --- recalls ---

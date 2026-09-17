@@ -114,7 +114,7 @@ describe("buildVehicleFacts — seatingCapacity (regression coverage)", () => {
     expect(facts.seatingCapacity).toEqual({ status: "known", value: 5, source: "vpic-fallback" });
   });
 
-  it("still reports 'partial' honestly when vPIC has no seat data to offer either", () => {
+  it("still reports unknown honestly when vPIC has no seat data to offer either", () => {
     const sheet: SpecSheet = {
       ref: "model-year:test/car/2024",
       grain: "model-year",
@@ -139,7 +139,7 @@ describe("buildVehicleFacts — seatingCapacity (regression coverage)", () => {
       mileage: null,
       checkedAt: "2026-01-01T00:00:00Z",
     });
-    expect(facts.seatingCapacity).toEqual({ status: "unknown", reason: "partial" });
+    expect(facts.seatingCapacity).toEqual({ status: "unknown" });
   });
 
   it("prefers Cardog's own clean value over vPIC when Cardog actually has one", () => {

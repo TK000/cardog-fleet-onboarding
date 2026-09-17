@@ -1,24 +1,22 @@
 // app/components/FactRow.tsx
 //
 // Renders one Fact<T> as a labeled row: a real value with its source tag
-// when known, or an explicit "cannot verify" state with a specific reason
-// when not
+// when known, or an explicit "cannot verify" message when not
 
-import type { Fact, UnknownReason } from "@/lib/facts";
+import type { Fact } from "@/lib/facts";
 import { SourceTag } from "./SourceTag";
 
 export function FactRow<T>({
   label,
   fact,
   format,
-  unknownReason,
+  unknownMessage,
   checkedAt,
 }: {
   label: string;
   fact: Fact<T>;
   format: (value: T) => string;
-  // Optional per-field messaging for why it's unknown
-  unknownReason?: (reason: UnknownReason, detail?: string) => string;
+  unknownMessage?: string;
   checkedAt: string;
 }) {
   return (
@@ -36,9 +34,7 @@ export function FactRow<T>({
           <>
             <div className="text-sm italic text-[#8A8A80]">cannot verify</div>
             <div className="max-w-[240px] text-xs leading-snug text-[#8A8A80]">
-              {unknownReason
-                ? unknownReason(fact.reason, fact.detail)
-                : "We couldn't confirm this from the VIN provided."}
+              {unknownMessage ?? "We couldn't confirm this from the VIN provided."}
             </div>
           </>
         )}

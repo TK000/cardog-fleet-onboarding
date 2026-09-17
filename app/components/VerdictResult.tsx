@@ -2,7 +2,6 @@
 
 import type { VehicleFacts, CanonicalVehicleType } from "@/lib/facts";
 import type { Verdict } from "@/lib/eligibility";
-import { describeUnknownSeats } from "@/lib/eligibility";
 import { FactRow } from "./Factrow";
 import { SourceTag } from "./SourceTag";
 
@@ -83,12 +82,10 @@ export function VerdictResult({
           label="Seats"
           fact={facts.seatingCapacity}
           format={(v) => `${v} seats`}
-          unknownReason={describeUnknownSeats}
+          unknownMessage="We couldn't confirm this vehicle's seating capacity. This will need manual review before onboarding can proceed."
           checkedAt={facts.checkedAt}
         />
 
-        {/* Recalls: not a Fact<T> — its own shape, rendered directly.
-            Uses recalls.asOf (Cardog's own field) with dateLabel="as of" */}
         <div className="flex items-start justify-between gap-4 border-b border-[#E4E2D8] py-3">
           <div className="pt-0.5 text-sm text-[#14171F]">Recalls</div>
           <div className="flex flex-col items-end gap-1 text-right">
