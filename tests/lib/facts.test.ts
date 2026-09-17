@@ -1,11 +1,4 @@
 // lib/facts.test.ts
-//
-// buildVehicleFacts() does touch Cardog/vPIC types, but it's still a pure
-// function — raw API-shaped objects in, VehicleFacts out — so these are
-// still hand-built fixtures, not network mocks. Focused on the merge
-// logic specifically, since that's where the real bugs in this build
-// actually showed up (vehicleType always vpic-sourced, seatingCapacity
-// discarding a fetched vpic value on "partial").
 
 import { describe, it, expect } from "vitest";
 import { buildVehicleFacts } from "@/lib/facts";
@@ -78,10 +71,10 @@ describe("buildVehicleFacts — vehicleType", () => {
     expect(facts.vehicleType).toEqual({ status: "known", value: "passenger-car", source: "cardog" });
   });
 
-  it("falls back to vPIC when Cardog's refs.vehicleType is null — the common real-world case", () => {
+  it("falls back to vPIC when Cardog's refs.vehicleType is null", () => {
     const facts = buildVehicleFacts({
       vin: "TESTVIN0000000001",
-      identity: baseIdentity(), // refs.vehicleType: null, matching every real response seen in testing
+      identity: baseIdentity(),
       vpic: cleanVpic,
       specs: null,
       recalls: baseRecalls(),
@@ -93,11 +86,7 @@ describe("buildVehicleFacts — vehicleType", () => {
 });
 
 describe("buildVehicleFacts — seatingCapacity (regression coverage)", () => {
-  it("uses vPIC's seat count when Cardog's spec status is 'partial', not just 'absent'", () => {
-    // This is the exact bug found and fixed: the merge used to only try
-    // vPIC on "absent", silently discarding a perfectly good, already-
-    // fetched vPIC seat count whenever Cardog said "partial" instead —
-    // which is the MORE common status across every real spec sheet tested.
+  it("uses vPIC's seat count when Cardog's spec status is 'partial'", () => {
     const sheet: SpecSheet = {
       ref: "model-year:test/car/2024",
       grain: "model-year",
