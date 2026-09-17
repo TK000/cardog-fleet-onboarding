@@ -80,7 +80,7 @@ describe("evaluateEligibility — seatingCapacity", () => {
       cleanFacts({ seatingCapacity: { status: "known", value: 2, source: "vpic-fallback" } })
     );
     expect(verdict.status).toBe("not-eligible");
-    expect(verdict.reasons.some((r) => /seats 2/i.test(r))).toBe(true);
+    expect(verdict.reasons.some((r) => /2 seats/i.test(r))).toBe(true);
   });
 
   it("produces cannot-say when seating capacity is unknown", () => {
