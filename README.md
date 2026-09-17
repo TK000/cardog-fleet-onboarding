@@ -54,7 +54,7 @@ npm test
 Any valid 17-character VIN works. Two real ones to start with if you want a quick look:
 
 - `4T1DAACK5SU614616` — a 2025 Toyota Camry
-- `JF2SKAJC8SG000101` — a 2025 Subaru Forester
+- `1FTFW1E85SF000201` — a 2025 Ford F-150
 
 ## What it checks
 
