@@ -51,7 +51,7 @@ describe("evaluateEligibility — year", () => {
     expect(verdict.status).toBe("eligible");
   });
 
-  it("produces cannot-say when year is unknown", () => {
+  it("produces cannot-say (not a silent pass) when year is unknown", () => {
     const verdict = evaluateEligibility(cleanFacts({ year: { status: "unknown" } }));
     expect(verdict.status).toBe("cannot-say");
   });
@@ -103,7 +103,7 @@ describe("evaluateEligibility — recalls", () => {
       cleanFacts({
         recalls: {
           checked: true,
-          openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: "LABEL", correctiveAction: "Replace label." }],
+          openCampaigns: [{ campaignNumber: "26V436000", authorityLabel: "NHTSA", component: "LABEL", correctiveAction: "Replace label.", recallDate: "2026-07-07" }],
           asOf: "2026-01-01T00:00:00Z",
         },
       })

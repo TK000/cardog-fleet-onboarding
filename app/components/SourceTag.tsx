@@ -3,21 +3,21 @@
 // Source and date for every fact on the results page
 
 export type DisplaySource = "cardog" | "vpic-fallback" | "driver-reported";
-
+ 
 const LABELS: Record<DisplaySource, string> = {
   cardog: "Cardog",
   "vpic-fallback": "NHTSA (fallback)",
   "driver-reported": "you reported this",
 };
-
-function formatDate(iso: string): string {
+ 
+export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 }
-
+ 
 export function SourceTag({
   source,
   method,

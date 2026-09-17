@@ -17,6 +17,13 @@ import { readSpecAttribute } from "./cardog";
 
 export type FactSource = "cardog" | "vpic-fallback";
 
+// A fact is either known (with its source) or unknown. No reason is
+// tracked on the unknown branch: cardog.ts's readSpecAttribute() still
+// distinguishes trimDependent/partial/unservable/absent internally, since
+// that distinction determines whether a Cardog value is safe to trust as
+// real — but once that's decided, nothing downstream (the rule engine, the
+// UI) ever branched on *why* a fact was unknown, only that it was. Carrying
+// the reason this far was unused plumbing.
 export type Fact<T> =
   | { status: "known"; value: T; source: FactSource }
   | { status: "unknown" };
@@ -64,6 +71,7 @@ export interface OpenRecallSummary {
   authorityLabel: string;
   component: string | null;
   correctiveAction: string | null;
+  recallDate: string | null; // this campaign's own issue date — distinct from RecallFacts.asOf, which is when Cardog's overall recall data was last refreshed
 }
 
 export interface RecallFacts {
@@ -127,6 +135,11 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
   }
 
   // --- seatingCapacity ---
+  // readSpecAttribute still distinguishes trimDependent/partial/unservable/
+  // absent internally (see cardog.ts) — that's needed to know whether
+  // Cardog's value is safe to use at all. But once it isn't, we no longer
+  // care which of those four reasons applied, only that it wasn't usable,
+  // so we try vPIC and otherwise fall through to a flat unknown().
   let seatingCapacity: Fact<number>;
   const specResult = specs ? readSpecAttribute(specs, "seatingCapacity") : null;
   const cardogSeats =
@@ -147,6 +160,7 @@ export function buildVehicleFacts(input: BuildFactsInput): VehicleFacts {
       authorityLabel: r.authorityLabel,
       component: r.component,
       correctiveAction: r.correctiveAction,
+      recallDate: r.recallDate,
     }));
 
   return {

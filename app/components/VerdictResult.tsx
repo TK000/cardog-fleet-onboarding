@@ -3,7 +3,7 @@
 import type { VehicleFacts, CanonicalVehicleType } from "@/lib/facts";
 import type { Verdict } from "@/lib/eligibility";
 import { FactRow } from "./Factrow";
-import { SourceTag } from "./SourceTag";
+import { SourceTag, formatDate } from "./SourceTag";
 
 const STATUS_COPY: Record<Verdict["status"], { label: string; color: string; bg: string }> = {
   eligible: { label: "Eligible", color: "#2F6E4F", bg: "#EAF2ED" },
@@ -86,6 +86,7 @@ export function VerdictResult({
           checkedAt={facts.checkedAt}
         />
 
+        {/* Recalls */}
         <div className="flex items-start justify-between gap-4 border-b border-[#E4E2D8] py-3">
           <div className="pt-0.5 text-sm text-[#14171F]">Recalls</div>
           <div className="flex flex-col items-end gap-1 text-right">
@@ -129,6 +130,7 @@ export function VerdictResult({
               <div key={c.campaignNumber} className="border-l-2 border-[#A23B2E] pl-3">
                 <div className="font-[family-name:var(--font-mono)] text-xs text-[#5B5A52]">
                   {c.campaignNumber} · {c.authorityLabel}
+                  {c.recallDate && <> · issued {formatDate(c.recallDate)}</>}
                 </div>
                 {c.component && (
                   <div className="mt-0.5 text-sm text-[#14171F]">{c.component}</div>
